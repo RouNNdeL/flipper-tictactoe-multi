@@ -9,50 +9,129 @@ typedef struct {
     uint8_t position_x;
     uint8_t position_y;
 
-    void* context;
-    TttMultiGameViewMoveCallback callback;
+    TttMultiGamePlayer local_player;
+    bool is_local;
+
+    TttMultiGameViewMoveCallback move_callback;
+    void* move_context;
+
+    TttMultiGameViewFinishCallback finish_callback;
+    void* finish_context;
 } TttMultiGameViewModel;
 
 void ttt_multi_game_view_draw_callback(Canvas* canvas, void* _model) {
     TttMultiGameViewModel* model = _model;
 
     canvas_clear(canvas);
+    const uint8_t top = 2;
+    const uint8_t left = 4;
     const uint8_t cell_size = 20;
     const uint8_t padding = 4;
 
+    canvas_draw_frame(canvas, left - 1, top - 1, 3 * cell_size + 2, 3 * cell_size + 2);
+
     for(uint8_t i = 0; i < 3; i++) {
         for(uint8_t j = 0; j < 3; j++) {
-            canvas_draw_frame(canvas, i * cell_size, j * cell_size, cell_size, cell_size);
+            canvas_draw_frame(
+                canvas, left + i * cell_size, top + j * cell_size, cell_size, cell_size);
         }
     }
 
     for(uint8_t i = 0; i < 3; i++) {
         for(uint8_t j = 0; j < 3; j++) {
-            bool is_selected = model->position_x == i && model->position_y == j;
-            bool draw_current_x = is_selected && ttt_multi_game_get_state(model->game) == TttMultiGameStateTurnX;
-            bool draw_current_o = is_selected && ttt_multi_game_get_state(model->game) == TttMultiGameStateTurnO;
+            bool is_selected = model->position_x == i && model->position_y == j &&
+                               ttt_multi_game_get_state(model->game) != TttMultiGameStateFinished;
 
-            if(draw_current_x || ttt_multi_game_player_at(model->game, i, j) == TttMultiGamePlayerX) {
+            if(ttt_multi_game_player_at(model->game, i, j) == TttMultiGamePlayerX) {
                 canvas_draw_line(
                     canvas,
-                    i * cell_size + padding,
-                    j * cell_size + padding,
-                    i * cell_size + cell_size - padding,
-                    j * cell_size + cell_size - padding);
+                    left + i * cell_size + padding,
+                    top + j * cell_size + padding,
+                    left + i * cell_size + cell_size - padding,
+                    top + j * cell_size + cell_size - padding);
                 canvas_draw_line(
                     canvas,
-                    i * cell_size + cell_size - padding,
-                    j * cell_size + padding,
-                    i * cell_size + padding,
-                    j * cell_size + cell_size - padding);
-            } else if(draw_current_o || ttt_multi_game_player_at(model->game, i, j) == TttMultiGamePlayerO) {
+                    left + i * cell_size + cell_size - padding,
+                    top + j * cell_size + padding,
+                    left + i * cell_size + padding,
+                    top + j * cell_size + cell_size - padding);
+            } else if(ttt_multi_game_player_at(model->game, i, j) == TttMultiGamePlayerO) {
                 canvas_draw_circle(
                     canvas,
-                    i * cell_size + cell_size / 2,
-                    j * cell_size + cell_size / 2,
+                    left + i * cell_size + cell_size / 2,
+                    top + j * cell_size + cell_size / 2,
                     cell_size / 2 - padding);
             }
+
+            if(is_selected) {
+                canvas_draw_frame(
+                    canvas,
+                    left + i * cell_size + 1,
+                    top + j * cell_size + 1,
+                    cell_size - 2,
+                    cell_size - 2);
+            }
         }
+    }
+
+    char *status_str = "";
+    // TODO: Rewrite this
+    if(model->is_local) {
+        if(ttt_multi_game_get_state(model->game) == TttMultiGameStateFinished) {
+            if(ttt_multi_game_get_result(model->game) == TttMultiGameResultXWin) {
+                status_str = "X win";
+            } else if(ttt_multi_game_get_result(model->game) == TttMultiGameResultOWin) {
+                status_str = "O win";
+            } else if(ttt_multi_game_get_result(model->game) == TttMultiGameResultDraw) {
+                status_str = "Draw";
+            }
+        } else {
+            if(ttt_multi_game_current_player(model->game) == TttMultiGamePlayerX) {
+                status_str = "X turn";
+            } else {
+                status_str = "O turn";
+            }
+        }
+    } else {
+        if(ttt_multi_game_get_state(model->game) == TttMultiGameStateFinished) {
+            if(model->local_player == TttMultiGamePlayerX) {
+                if(ttt_multi_game_get_result(model->game) == TttMultiGameResultXWin) {
+                    status_str = "You win";
+                } else if(ttt_multi_game_get_result(model->game) == TttMultiGameResultOWin) {
+                    status_str = "You lose";
+                } else if(ttt_multi_game_get_result(model->game) == TttMultiGameResultDraw) {
+                    status_str = "Draw";
+                }
+            } else {
+                if(ttt_multi_game_get_result(model->game) == TttMultiGameResultXWin) {
+                    status_str = "You lose";
+                } else if(ttt_multi_game_get_result(model->game) == TttMultiGameResultOWin) {
+                    status_str = "You win";
+                } else if(ttt_multi_game_get_result(model->game) == TttMultiGameResultDraw) {
+                    status_str = "Draw";
+                }
+            }
+        } else {
+            if(model->local_player == TttMultiGamePlayerX) {
+                if(ttt_multi_game_get_state(model->game) == TttMultiGameStateTurnX) {
+                    status_str = "Your turn";
+                } else {
+                    status_str = "Opponent turn";
+                }
+            } else {
+                if(ttt_multi_game_get_state(model->game) == TttMultiGameStateTurnO) {
+                    status_str = "Your turn";
+                } else {
+                    status_str = "Opponent turn";
+                }
+            }
+        }
+    }
+
+    elements_text_box(canvas, 64, 16, 64, 16, AlignCenter, AlignCenter, status_str, false);
+    if(ttt_multi_game_get_state(model->game) == TttMultiGameStateFinished) {
+        elements_multiline_text_aligned(
+            canvas, 100, 32, AlignCenter, AlignTop, "Press OK\nto restart");
     }
 }
 
@@ -98,6 +177,15 @@ static bool ttt_multi_game_view_input_callback(InputEvent* event, void* context)
     return consumed;
 }
 
+void ttt_multi_game_view_model_reset(TttMultiGameViewModel * model) {
+    furi_assert(model);
+    furi_assert(model->game);
+
+    model->position_x = 1;
+    model->position_y = 1;
+    ttt_multi_game_reset(model->game);
+}
+
 TttMultiGameView* ttt_multi_game_view_alloc() {
     TttMultiGameView* game_view = malloc(sizeof(TttMultiGameView));
     game_view->view = view_alloc();
@@ -111,8 +199,7 @@ TttMultiGameView* ttt_multi_game_view_alloc() {
         TttMultiGameViewModel * model,
         {
             model->game = ttt_multi_game_alloc();
-            model->position_x = 0;
-            model->position_y = 0;
+            ttt_multi_game_view_model_reset(model);
         },
         true);
 
@@ -198,19 +285,23 @@ void ttt_multi_game_view_process_ok(TttMultiGameView* game_view) {
     furi_assert(game_view);
     TttMultiGameMove move = {};
     TttMultiGameViewMoveCallback callback = NULL;
-    void * context = NULL;
+    void* context = NULL;
 
     with_view_model(
         game_view->view,
         TttMultiGameViewModel * model,
         {
-            move.player = ttt_multi_game_current_player(model->game);
-            move.x = model->position_x;
-            move.y = model->position_y;
+            if(ttt_multi_game_get_state(model->game) == TttMultiGameStateFinished) {
+                ttt_multi_game_view_model_reset(model);
+            } else {
+                move.player = ttt_multi_game_current_player(model->game);
+                move.x = model->position_x;
+                move.y = model->position_y;
 
-            if(ttt_multi_game_is_move_valid(model->game, &move)) {
-                callback = model->callback;
-                context = model->context;
+                if(ttt_multi_game_is_move_valid(model->game, &move)) {
+                    callback = model->move_callback;
+                    context = model->move_context;
+                }
             }
         },
         true);
@@ -224,14 +315,29 @@ void ttt_multi_game_view_move(TttMultiGameView* game_view, TttMultiGameMove* mov
     furi_assert(game_view);
     furi_assert(move);
 
+    TttMultiGameResult result;
+    TttMultiGameViewFinishCallback finish_callback = NULL;
+    void* context = NULL;
+
     with_view_model(
         game_view->view,
         TttMultiGameViewModel * model,
-        { ttt_multi_game_make_move(model->game, move); },
+        {
+            ttt_multi_game_make_move(model->game, move);
+            result = ttt_multi_game_get_result(model->game);
+            if(result != TttMultiGameResultNone) {
+                finish_callback = model->finish_callback;
+                context = model->finish_context;
+            }
+        },
         true);
+
+    if(finish_callback) {
+        finish_callback(context, result);
+    }
 }
 
-void ttt_multi_game_view_set_callback(
+void ttt_multi_game_view_set_move_callback(
     TttMultiGameView* game_view,
     TttMultiGameViewMoveCallback callback,
     void* context) {
@@ -241,10 +347,46 @@ void ttt_multi_game_view_set_callback(
         game_view->view,
         TttMultiGameViewModel * model,
         {
-            model->callback = callback;
-            model->context = context;
+            model->move_callback = callback;
+            model->move_context = context;
         },
         true);
+}
+
+void ttt_multi_game_view_set_finish_callback(
+    TttMultiGameView* game_view,
+    TttMultiGameViewFinishCallback callback,
+    void* context) {
+    furi_assert(game_view);
+
+    with_view_model(
+        game_view->view,
+        TttMultiGameViewModel * model,
+        {
+            model->finish_callback = callback;
+            model->finish_context = context;
+        },
+        true);
+}
+
+void ttt_multi_game_view_set_remote_play(TttMultiGameView* game_view, TttMultiGamePlayer player) {
+    furi_assert(game_view);
+
+    with_view_model(
+        game_view->view,
+        TttMultiGameViewModel * model,
+        {
+            model->local_player = player;
+            model->is_local = false;
+        },
+        true);
+}
+
+void ttt_multi_game_view_set_local_play(TttMultiGameView* game_view) {
+    furi_assert(game_view);
+
+    with_view_model(
+        game_view->view, TttMultiGameViewModel * model, { model->is_local = true; }, true);
 }
 
 void ttt_multi_game_view_reset(TttMultiGameView* game_view) {
@@ -254,9 +396,7 @@ void ttt_multi_game_view_reset(TttMultiGameView* game_view) {
         game_view->view,
         TttMultiGameViewModel * model,
         {
-            ttt_multi_game_reset(model->game);
-            model->position_x = 0;
-            model->position_y = 0;
+            ttt_multi_game_view_model_reset(model);
         },
         true);
 }

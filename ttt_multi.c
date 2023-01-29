@@ -46,6 +46,7 @@ TttMultiApp *ttt_multi_alloc() {
     view_dispatcher_add_view(ttt_multi->view_dispatcher, TttMultiViewMenu, submenu_get_view(ttt_multi->submenu));
 
     ttt_multi->last_move = malloc(sizeof(TttMultiGameMove));
+    ttt_multi->result = TttMultiGameResultNone;
 
     return ttt_multi;
 }

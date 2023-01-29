@@ -31,6 +31,7 @@ typedef struct {
 
     // Common data
     TttMultiGameMove* last_move;
+    TttMultiGameResult result;
 } TttMultiApp;
 
 typedef enum {

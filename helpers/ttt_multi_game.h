@@ -34,6 +34,8 @@ void ttt_multi_game_free(TttMultiGame* game);
 
 void ttt_multi_game_reset(TttMultiGame* game);
 
+void ttt_multi_game_swap_player(TttMultiGame* game);
+
 void ttt_multi_game_make_move(TttMultiGame* game, TttMultiGameMove* move);
 
 bool ttt_multi_game_is_move_valid(TttMultiGame* game, TttMultiGameMove* move);

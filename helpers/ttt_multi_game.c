@@ -1,7 +1,6 @@
 #include "ttt_multi_game.h"
 
 struct TttMultiGame {
-    TttMultiGamePlayer local_player;
     TttMultiGameState state;
     TttMultiGameResult result;
 
@@ -19,16 +18,6 @@ void ttt_multi_game_reset(TttMultiGame* game) {
             game->board[i][j] = TttMultiGamePlayerNone;
         }
     }
-}
-
-void ttt_multi_game_set_local_player(TttMultiGame* game, TttMultiGamePlayer player) {
-    furi_assert(game);
-    game->local_player = player;
-}
-
-TttMultiGamePlayer ttt_multi_game_get_local_player(TttMultiGame* game) {
-    furi_assert(game);
-    return game->local_player;
 }
 
 TttMultiGameState ttt_multi_game_get_state(TttMultiGame* game) {
@@ -64,14 +53,16 @@ TttMultiGamePlayer ttt_multi_game_get_winner(TttMultiGame* game) {
 
     // Check rows
     for(uint8_t i = 0; i < 3; i++) {
-        if(game->board[i][0] == game->board[i][1] && game->board[i][1] == game->board[i][2]) {
+        if(game->board[i][0] != TttMultiGamePlayerNone && game->board[i][0] == game->board[i][1] &&
+           game->board[i][1] == game->board[i][2]) {
             return (TttMultiGamePlayer)game->board[i][0];
         }
     }
 
     // Check columns
     for(uint8_t i = 0; i < 3; i++) {
-        if(game->board[0][i] == game->board[1][i] && game->board[1][i] == game->board[2][i]) {
+        if(game->board[0][i] != TttMultiGamePlayerNone && game->board[0][i] == game->board[1][i] &&
+           game->board[1][i] == game->board[2][i]) {
             return (TttMultiGamePlayer)game->board[0][i];
         }
     }
@@ -94,22 +85,21 @@ static void ttt_multi_game_update_result(TttMultiGame* game) {
         return;
     }
 
+    TttMultiGamePlayer winner = ttt_multi_game_get_winner(game);
+    if(winner != TttMultiGamePlayerNone) {
+        game->state = TttMultiGameStateFinished;
+        if(winner == TttMultiGamePlayerX) {
+            game->result = TttMultiGameResultXWin;
+        } else if(winner == TttMultiGamePlayerO) {
+            game->result = TttMultiGameResultOWin;
+        }
+
+        return;
+    }
+
     if(ttt_multi_game_is_draw(game)) {
         game->result = TttMultiGameResultDraw;
         game->state = TttMultiGameStateFinished;
-        return;
-    }
-
-    TttMultiGamePlayer winner = ttt_multi_game_get_winner(game);
-    if(winner == TttMultiGamePlayerNone) {
-        return;
-    }
-    game->state = TttMultiGameStateFinished;
-
-    if(winner == TttMultiGamePlayerX) {
-        game->result = TttMultiGameResultXWin;
-    } else if(winner == TttMultiGamePlayerO) {
-        game->result = TttMultiGameResultOWin;
     }
 }
 
@@ -118,6 +108,10 @@ bool ttt_multi_game_is_move_valid(TttMultiGame* game, TttMultiGameMove* move) {
     furi_assert(move);
 
     if(move->x > 2 || move->y > 2) {
+        return false;
+    }
+
+    if(move->player != ttt_multi_game_current_player(game)) {
         return false;
     }
 
@@ -140,12 +134,23 @@ TttMultiGamePlayer ttt_multi_game_current_player(TttMultiGame* game) {
     return TttMultiGamePlayerNone;
 }
 
+void ttt_multi_game_swap_player(TttMultiGame* game) {
+    furi_assert(game);
+
+    if(game->state == TttMultiGameStateTurnX) {
+        game->state = TttMultiGameStateTurnO;
+    } else if(game->state == TttMultiGameStateTurnO) {
+        game->state = TttMultiGameStateTurnX;
+    }
+}
+
 void ttt_multi_game_make_move(TttMultiGame* game, TttMultiGameMove* move) {
     furi_assert(game);
     furi_assert(move);
     furi_assert(ttt_multi_game_is_move_valid(game, move));
 
     game->board[move->x][move->y] = (uint8_t)move->player;
+    ttt_multi_game_swap_player(game);
     ttt_multi_game_update_result(game);
 }
 
