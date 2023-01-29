@@ -39,7 +39,8 @@ TttMultiApp *ttt_multi_alloc() {
 
     ttt_multi->notifications = furi_record_open(RECORD_NOTIFICATION);
 
-    ttt_multi->game = ttt_multi_game_alloc();
+    ttt_multi->game_view = ttt_multi_game_view_alloc();
+    view_dispatcher_add_view(ttt_multi->view_dispatcher, TttMultiViewGame, ttt_multi_game_get_view(ttt_multi->game_view));
 
     ttt_multi->submenu = submenu_alloc();
     view_dispatcher_add_view(ttt_multi->view_dispatcher, TttMultiViewMenu, submenu_get_view(ttt_multi->submenu));
@@ -56,7 +57,8 @@ void ttt_multi_free(TttMultiApp *ttt_multi) {
     furi_record_close(RECORD_GUI);
     furi_record_close(RECORD_NOTIFICATION);
 
-    ttt_multi_game_free(ttt_multi->game);
+    ttt_multi_game_view_free(ttt_multi->game_view);
+    submenu_free(ttt_multi->submenu);
 
     free(ttt_multi);
 }
