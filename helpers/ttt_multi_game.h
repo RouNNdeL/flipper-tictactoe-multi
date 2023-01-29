@@ -43,3 +43,5 @@ TttMultiGameState ttt_multi_game_get_state(TttMultiGame* game);
 TttMultiGameResult ttt_multi_game_get_result(TttMultiGame* game);
 
 TttMultiGamePlayer ttt_multi_game_player_at(TttMultiGame* game, uint8_t x, uint8_t y);
+
+TttMultiGamePlayer ttt_multi_game_current_player(TttMultiGame* game);

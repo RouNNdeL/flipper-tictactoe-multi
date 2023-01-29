@@ -28,6 +28,9 @@ typedef struct {
     // Common views
     Submenu* submenu;
     TttMultiGameView* game_view;
+
+    // Common data
+    TttMultiGameMove* last_move;
 } TttMultiApp;
 
 typedef enum {

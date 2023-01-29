@@ -4,7 +4,7 @@
 #include "../ttt_multi_custom_event.h"
 #include "../helpers/ttt_multi_game.h"
 
-typedef void (*TttMultiGameViewCallback)(TttMultiCustomEvent event, void* context);
+typedef void (*TttMultiGameViewMoveCallback)(void* context, const TttMultiGameMove* move);
 typedef struct TttMultiGameView TttMultiGameView;
 
 TttMultiGameView* ttt_multi_game_view_alloc();
@@ -17,5 +17,7 @@ void ttt_multi_game_view_move(TttMultiGameView* game_view, TttMultiGameMove* mov
 
 void ttt_multi_game_view_set_callback(
     TttMultiGameView* game_view,
-    TttMultiGameViewCallback callback,
+    TttMultiGameViewMoveCallback callback,
     void* context);
+
+void ttt_multi_game_view_reset(TttMultiGameView* game_view);

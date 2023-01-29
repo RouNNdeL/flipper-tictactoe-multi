@@ -128,6 +128,18 @@ bool ttt_multi_game_is_move_valid(TttMultiGame* game, TttMultiGameMove* move) {
     return true;
 }
 
+TttMultiGamePlayer ttt_multi_game_current_player(TttMultiGame* game) {
+    furi_assert(game);
+
+    if(game->state == TttMultiGameStateTurnX) {
+        return TttMultiGamePlayerX;
+    } else if(game->state == TttMultiGameStateTurnO) {
+        return TttMultiGamePlayerO;
+    }
+
+    return TttMultiGamePlayerNone;
+}
+
 void ttt_multi_game_make_move(TttMultiGame* game, TttMultiGameMove* move) {
     furi_assert(game);
     furi_assert(move);
