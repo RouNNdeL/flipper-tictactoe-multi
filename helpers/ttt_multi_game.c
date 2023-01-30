@@ -7,6 +7,38 @@ struct TttMultiGame {
     uint8_t board[3][3];
 };
 
+void ttt_multi_game_move_reset(TttMultiGameMove* move) {
+    furi_assert(move);
+
+    // make the move invalid
+    move->player = TttMultiGamePlayerNone;
+    move->x = 0xff;
+    move->y = 0xff;
+}
+
+void ttt_multi_game_move_copy(TttMultiGameMove* dst, const TttMultiGameMove* src) {
+    furi_assert(dst);
+    furi_assert(src);
+
+    dst->player = src->player;
+    dst->x = src->x;
+    dst->y = src->y;
+}
+
+TttMultiGameMove* ttt_multi_game_move_alloc() {
+    TttMultiGameMove *move = malloc(sizeof(TttMultiGameMove));
+
+    ttt_multi_game_move_reset(move);
+
+    return move;
+}
+
+void ttt_multi_game_move_free(TttMultiGameMove* move) {
+    furi_assert(move);
+
+    free(move);
+}
+
 void ttt_multi_game_reset(TttMultiGame* game) {
     furi_assert(game);
 

@@ -5,8 +5,7 @@
 #include "../ttt_multi_custom_event.h"
 #include "../helpers/ttt_multi_game.h"
 
-typedef void (*TttMultiGameViewMoveCallback)(void* context, const TttMultiGameMove* move);
-typedef void (*TttMultiGameViewFinishCallback)(void* context, TttMultiGameResult result);
+typedef void (*TttMultiGameViewCallback)(void* context, TttMultiCustomEvent event);
 typedef struct TttMultiGameView TttMultiGameView;
 
 TttMultiGameView* ttt_multi_game_view_alloc();
@@ -17,18 +16,17 @@ View* ttt_multi_game_get_view(TttMultiGameView* game_view);
 
 void ttt_multi_game_view_move(TttMultiGameView* game_view, TttMultiGameMove* move);
 
-void ttt_multi_game_view_set_move_callback(
+void ttt_multi_game_view_set_callback(
     TttMultiGameView* game_view,
-    TttMultiGameViewMoveCallback callback,
-    void* context);
-
-void ttt_multi_game_view_set_finish_callback(
-    TttMultiGameView* game_view,
-    TttMultiGameViewFinishCallback callback,
+    TttMultiGameViewCallback callback,
     void* context);
 
 void ttt_multi_game_view_set_remote_play(TttMultiGameView* game_view, TttMultiGamePlayer player);
 
 void ttt_multi_game_view_set_local_play(TttMultiGameView* game_view);
+
+void ttt_multi_game_view_get_last_move(TttMultiGameView* game_view, TttMultiGameMove* move);
+
+TttMultiGameResult ttt_multi_game_view_get_result(TttMultiGameView* game_view);
 
 void ttt_multi_game_view_reset(TttMultiGameView* game_view);

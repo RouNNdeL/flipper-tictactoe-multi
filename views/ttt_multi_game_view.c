@@ -12,11 +12,11 @@ typedef struct {
     TttMultiGamePlayer local_player;
     bool is_local;
 
-    TttMultiGameViewMoveCallback move_callback;
-    void* move_context;
+    TttMultiGameViewCallback callback;
+    void* context;
 
-    TttMultiGameViewFinishCallback finish_callback;
-    void* finish_context;
+    TttMultiGameMove* last_move;
+    TttMultiGameResult result;
 } TttMultiGameViewModel;
 
 void ttt_multi_game_view_draw_callback(Canvas* canvas, void* _model) {
@@ -74,7 +74,7 @@ void ttt_multi_game_view_draw_callback(Canvas* canvas, void* _model) {
         }
     }
 
-    char *status_str = "";
+    char* status_str = "";
     // TODO: Rewrite this
     if(model->is_local) {
         if(ttt_multi_game_get_state(model->game) == TttMultiGameStateFinished) {
@@ -177,7 +177,7 @@ static bool ttt_multi_game_view_input_callback(InputEvent* event, void* context)
     return consumed;
 }
 
-void ttt_multi_game_view_model_reset(TttMultiGameViewModel * model) {
+void ttt_multi_game_view_model_reset(TttMultiGameViewModel* model) {
     furi_assert(model);
     furi_assert(model->game);
 
@@ -199,6 +199,7 @@ TttMultiGameView* ttt_multi_game_view_alloc() {
         TttMultiGameViewModel * model,
         {
             model->game = ttt_multi_game_alloc();
+            model->last_move = ttt_multi_game_move_alloc();
             ttt_multi_game_view_model_reset(model);
         },
         true);
@@ -212,7 +213,10 @@ void ttt_multi_game_view_free(TttMultiGameView* game_view) {
     with_view_model(
         game_view->view,
         TttMultiGameViewModel * model,
-        { ttt_multi_game_free(model->game); },
+        {
+            ttt_multi_game_free(model->game);
+            ttt_multi_game_move_free(model->last_move);
+        },
         true);
 
     view_free(game_view->view);
@@ -283,8 +287,7 @@ void ttt_multi_game_view_process_right(TttMultiGameView* game_view) {
 
 void ttt_multi_game_view_process_ok(TttMultiGameView* game_view) {
     furi_assert(game_view);
-    TttMultiGameMove move = {};
-    TttMultiGameViewMoveCallback callback = NULL;
+    TttMultiGameViewCallback callback = NULL;
     void* context = NULL;
 
     with_view_model(
@@ -294,20 +297,20 @@ void ttt_multi_game_view_process_ok(TttMultiGameView* game_view) {
             if(ttt_multi_game_get_state(model->game) == TttMultiGameStateFinished) {
                 ttt_multi_game_view_model_reset(model);
             } else {
-                move.player = ttt_multi_game_current_player(model->game);
-                move.x = model->position_x;
-                move.y = model->position_y;
+                model->last_move->player = ttt_multi_game_current_player(model->game);
+                model->last_move->x = model->position_x;
+                model->last_move->y = model->position_y;
 
-                if(ttt_multi_game_is_move_valid(model->game, &move)) {
-                    callback = model->move_callback;
-                    context = model->move_context;
+                if(ttt_multi_game_is_move_valid(model->game, model->last_move)) {
+                    callback = model->callback;
+                    context = model->context;
                 }
             }
         },
         true);
 
     if(callback) {
-        callback(context, &move);
+        callback(context, TttMultiCustomEventGameMove);
     }
 }
 
@@ -316,7 +319,7 @@ void ttt_multi_game_view_move(TttMultiGameView* game_view, TttMultiGameMove* mov
     furi_assert(move);
 
     TttMultiGameResult result;
-    TttMultiGameViewFinishCallback finish_callback = NULL;
+    TttMultiGameViewCallback callback = NULL;
     void* context = NULL;
 
     with_view_model(
@@ -326,20 +329,20 @@ void ttt_multi_game_view_move(TttMultiGameView* game_view, TttMultiGameMove* mov
             ttt_multi_game_make_move(model->game, move);
             result = ttt_multi_game_get_result(model->game);
             if(result != TttMultiGameResultNone) {
-                finish_callback = model->finish_callback;
-                context = model->finish_context;
+                callback = model->callback;
+                context = model->context;
             }
         },
         true);
 
-    if(finish_callback) {
-        finish_callback(context, result);
+    if(callback) {
+        callback(context, TttMultiCustomEventGameFinish);
     }
 }
 
-void ttt_multi_game_view_set_move_callback(
+void ttt_multi_game_view_set_callback(
     TttMultiGameView* game_view,
-    TttMultiGameViewMoveCallback callback,
+    TttMultiGameViewCallback callback,
     void* context) {
     furi_assert(game_view);
 
@@ -347,24 +350,8 @@ void ttt_multi_game_view_set_move_callback(
         game_view->view,
         TttMultiGameViewModel * model,
         {
-            model->move_callback = callback;
-            model->move_context = context;
-        },
-        true);
-}
-
-void ttt_multi_game_view_set_finish_callback(
-    TttMultiGameView* game_view,
-    TttMultiGameViewFinishCallback callback,
-    void* context) {
-    furi_assert(game_view);
-
-    with_view_model(
-        game_view->view,
-        TttMultiGameViewModel * model,
-        {
-            model->finish_callback = callback;
-            model->finish_context = context;
+            model->callback = callback;
+            model->context = context;
         },
         true);
 }
@@ -389,14 +376,41 @@ void ttt_multi_game_view_set_local_play(TttMultiGameView* game_view) {
         game_view->view, TttMultiGameViewModel * model, { model->is_local = true; }, true);
 }
 
+void ttt_multi_game_view_get_last_move(TttMultiGameView* game_view, TttMultiGameMove* move) {
+    furi_assert(game_view);
+    furi_assert(move);
+
+    with_view_model(
+        game_view->view,
+        TttMultiGameViewModel * model,
+        {
+            if(model->last_move->player != TttMultiGamePlayerNone) {
+                ttt_multi_game_move_copy(move, model->last_move);
+            }
+        },
+        true);
+}
+
+TttMultiGameResult ttt_multi_game_view_get_result(TttMultiGameView* game_view) {
+    furi_assert(game_view);
+
+    TttMultiGameResult result = TttMultiGameResultNone;
+
+    with_view_model(
+        game_view->view,
+        TttMultiGameViewModel * model,
+        { result = ttt_multi_game_get_result(model->game); },
+        true);
+
+    return result;
+}
+
 void ttt_multi_game_view_reset(TttMultiGameView* game_view) {
     furi_assert(game_view);
 
     with_view_model(
         game_view->view,
         TttMultiGameViewModel * model,
-        {
-            ttt_multi_game_view_model_reset(model);
-        },
+        { ttt_multi_game_view_model_reset(model); },
         true);
 }

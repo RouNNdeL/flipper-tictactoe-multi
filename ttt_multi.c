@@ -45,9 +45,6 @@ TttMultiApp *ttt_multi_alloc() {
     ttt_multi->submenu = submenu_alloc();
     view_dispatcher_add_view(ttt_multi->view_dispatcher, TttMultiViewMenu, submenu_get_view(ttt_multi->submenu));
 
-    ttt_multi->last_move = malloc(sizeof(TttMultiGameMove));
-    ttt_multi->result = TttMultiGameResultNone;
-
     return ttt_multi;
 }
 
@@ -69,9 +66,6 @@ void ttt_multi_free(TttMultiApp *ttt_multi) {
 
     furi_record_close(RECORD_GUI);
     ttt_multi->gui = NULL;
-
-    free(ttt_multi->last_move);
-    ttt_multi->last_move = NULL;
 
     free(ttt_multi);
 }
